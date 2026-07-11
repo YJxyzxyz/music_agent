@@ -85,6 +85,12 @@ python -m src.cli run
 # 临时使用夜晚场景，不修改 .env
 python -m src.cli run --scene night
 
+# 推荐工作流：先生成草稿，按需重写配文，确认后再推送
+python -m src.cli draft --scene night
+python -m src.cli show-draft
+python -m src.cli regenerate
+python -m src.cli push-draft
+
 # 3) 每天定时自动运行（后台常驻）
 python -m src.cli serve
 
@@ -106,6 +112,10 @@ Cookie 保存在 `data/cookies.json`，之后自动复用；若失效运行 `log
 选歌默认避开最近 30 天已推荐歌曲，候选不足时自动放宽限制补齐。
 歌曲反馈和艺人偏好保存在 `data/preferences.json`，变更流水保存在
 `data/feedback.jsonl`。不喜欢的歌曲和已屏蔽艺人会被过滤，喜欢反馈与偏爱艺人会提高后续推荐权重。
+
+`draft` 只生成 `data/draft.json` 和 `data/draft.html`，不会发送微信消息；
+`regenerate` 保留歌曲并重写配文，`push-draft` 才执行确认推送。每首歌会显示画像分、偏好分、
+推荐来源和总分。探索比例会根据最近最多 20 首探索歌曲的最终反馈，每次按 5% 小幅调整，范围限制在 0% 到 50%。
 
 ## 说明与边界
 

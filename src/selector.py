@@ -8,7 +8,7 @@ from profile import TasteProfile
 logger = logging.getLogger(__name__)
 
 
-def _normalize_song(song: dict) -> dict:
+def _normalize_song(song: dict, source: str) -> dict:
     artists = [ar.get("name", "") for ar in song.get("ar", []) if ar.get("name")]
     album = song.get("al", {}).get("name", "")
     return {
@@ -16,6 +16,7 @@ def _normalize_song(song: dict) -> dict:
         "name": song.get("name", "未知"),
         "artists": artists,
         "album": album,
+        "source": source,
     }
 
 
@@ -25,7 +26,7 @@ def build_pool(api, profile: TasteProfile) -> list[dict]:
     # 1) 每日推荐歌曲（最个性化）
     try:
         for s in api.recommend_songs(limit=30):
-            pool.append(_normalize_song(s))
+            pool.append(_normalize_song(s, "每日推荐"))
     except Exception as e:
         logger.warning("读取每日推荐歌曲失败：%s", e)
 
@@ -37,8 +38,9 @@ def build_pool(api, profile: TasteProfile) -> list[dict]:
             if not pid:
                 continue
             detail = api.playlist_detail(pid)
+            source = f"推荐歌单：{pl.get('name') or pid}"
             for tr in detail.get("tracks", [])[:50]:
-                pool.append(_normalize_song(tr))
+                pool.append(_normalize_song(tr, source))
     except Exception as e:
         logger.warning("读取推荐歌单失败：%s", e)
 
@@ -63,6 +65,20 @@ def score_song(
     if preferences:
         sc += preferences.adjustment(song)
     return sc
+
+
+def score_song_details(
+    song: dict,
+    profile: TasteProfile,
+    preferences: UserPreferences | None = None,
+) -> dict:
+    taste = sum(profile.normalized(artist) for artist in song.get("artists", []))
+    preference = preferences.adjustment(song) if preferences else 0.0
+    return {
+        "taste": round(taste, 3),
+        "preference": round(preference, 3),
+        "total": round(taste + preference, 3),
+    }
 
 
 def select_songs(
@@ -144,10 +160,18 @@ def select_songs(
 
     # 附加推荐理由
     for s in chosen:
+        details = score_song_details(s, profile, preferences)
         preference_reason = preferences.reason(s)
         tops = [a for a in s["artists"] if a in profile.artist_set]
         if s["id"] in exploration_ids:
             s["reason"] = "探索一点新口味"
         else:
             s["reason"] = preference_reason or (f"你常听 {tops[0]}" if tops else "今日新鲜推荐")
+        details["exploration"] = s["id"] in exploration_ids
+        s["score"] = details["total"]
+        s["score_breakdown"] = details
+        s["explanation"] = (
+            f"画像 {details['taste']:.2f} + 偏好 {details['preference']:+.2f}"
+            f"；来源：{s.get('source', '未知')}"
+        )
     return chosen

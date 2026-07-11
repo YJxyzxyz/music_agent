@@ -91,6 +91,8 @@ def write_journal(
         reason = song.get("reason") or "今日推荐"
         lines.append(f"{index}. **《{song.get('name', '未知')}》** - {artists}")
         lines.append(f"   专辑：{album}；推荐理由：{reason}")
+        if song.get("explanation"):
+            lines.append(f"   评分说明：{song['explanation']}；总分 {song.get('score', 0):.2f}")
         lines.append("")
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     return path

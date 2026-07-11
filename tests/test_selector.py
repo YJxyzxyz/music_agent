@@ -83,6 +83,14 @@ class SelectorTests(unittest.TestCase):
         )
         self.assertEqual([1, 2], [song["id"] for song in chosen])
 
+    def test_selected_song_contains_score_explanation_and_source(self):
+        api = FakeAPI([raw_song(1, "解释", "甲")])
+        chosen = select_songs(api, TasteProfile({"甲": 10}), n=1, explore_ratio=0)
+        self.assertEqual(1.0, chosen[0]["score"])
+        self.assertEqual(1.0, chosen[0]["score_breakdown"]["taste"])
+        self.assertEqual("每日推荐", chosen[0]["source"])
+        self.assertIn("画像 1.00", chosen[0]["explanation"])
+
 
 if __name__ == "__main__":
     unittest.main()

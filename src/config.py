@@ -13,6 +13,8 @@ COOKIES_FILE = DATA_DIR / "cookies.json"
 QR_FILE = DATA_DIR / "qr_login.png"
 STATE_FILE = DATA_DIR / "state.json"
 LAST_PUSH_FILE = DATA_DIR / "last_push.html"
+DRAFT_FILE = DATA_DIR / "draft.json"
+DRAFT_PREVIEW_FILE = DATA_DIR / "draft.html"
 HISTORY_FILE = DATA_DIR / "history.jsonl"
 PREFERENCES_FILE = DATA_DIR / "preferences.json"
 FEEDBACK_FILE = DATA_DIR / "feedback.jsonl"
@@ -90,11 +92,11 @@ class Settings:
 settings = Settings()
 
 
-def check_required() -> list[str]:
+def check_required(require_deepseek: bool = True, require_pushplus: bool = True) -> list[str]:
     """返回缺失的必填配置项名称。"""
     missing = []
-    if not settings.deepseek_api_key:
+    if require_deepseek and not settings.deepseek_api_key:
         missing.append("DEEPSEEK_API_KEY")
-    if not settings.pushplus_token:
+    if require_pushplus and not settings.pushplus_token:
         missing.append("PUSHPLUS_TOKEN")
     return missing

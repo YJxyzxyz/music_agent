@@ -51,6 +51,41 @@ class PreferenceTests(unittest.TestCase):
             self.assertNotIn("甲", current.preferred_artists)
             self.assertNotIn("甲", current.artist_feedback)
 
+    def test_adaptive_exploration_uses_latest_feedback_per_song(self):
+        events = [
+            {"type": "song", "action": "like", "song": {"id": 1, "reason": "探索一点新口味"}},
+            {"type": "song", "action": "dislike", "song": {"id": 1, "reason": "探索一点新口味"}},
+            {"type": "song", "action": "like", "song": {"id": 2, "reason": "探索一点新口味"}},
+            {"type": "song", "action": "like", "song": {"id": 3, "reason": "你常听 甲"}},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            feedback = Path(tmp) / "feedback.jsonl"
+            feedback.write_text(
+                "\n".join(json.dumps(event, ensure_ascii=False) for event in events),
+                encoding="utf-8",
+            )
+            with patch.object(preferences, "FEEDBACK_FILE", feedback):
+                strategy = preferences.adaptive_explore_strategy(0.2)
+        self.assertEqual(1, strategy["explore_likes"])
+        self.assertEqual(1, strategy["explore_dislikes"])
+        self.assertEqual(0.2, strategy["effective_ratio"])
+
+    def test_adaptive_exploration_is_capped_at_fifty_percent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            feedback = Path(tmp) / "feedback.jsonl"
+            feedback.write_text(
+                "\n".join(
+                    json.dumps(
+                        {"type": "song", "action": "like", "song": {"id": i, "reason": "探索一点新口味"}}
+                    )
+                    for i in range(20)
+                ),
+                encoding="utf-8",
+            )
+            with patch.object(preferences, "FEEDBACK_FILE", feedback):
+                strategy = preferences.adaptive_explore_strategy(0.2)
+        self.assertEqual(0.5, strategy["effective_ratio"])
+
 
 if __name__ == "__main__":
     unittest.main()

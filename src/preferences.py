@@ -122,3 +122,35 @@ def set_artist_preference(action: str, artist: str) -> None:
         preferences.artist_feedback.pop(artist, None)
     save_preferences(preferences)
     _append_event({"type": "artist", "action": action, "artist": artist})
+
+
+def adaptive_explore_strategy(base_ratio: float, max_events: int = 20) -> dict:
+    """根据探索歌曲的明确反馈，小幅调整后续探索比例。"""
+    likes = 0
+    dislikes = 0
+    if FEEDBACK_FILE.exists():
+        latest_by_song = {}
+        for line in FEEDBACK_FILE.read_text(encoding="utf-8").splitlines():
+            try:
+                event = json.loads(line)
+            except (TypeError, ValueError):
+                continue
+            song = event.get("song") or {}
+            if event.get("type") == "song" and song.get("reason") == "探索一点新口味":
+                song_id = str(song.get("id"))
+                latest_by_song.pop(song_id, None)
+                latest_by_song[song_id] = event
+        for event in list(latest_by_song.values())[-max_events:]:
+            if event.get("action") == "like":
+                likes += 1
+            elif event.get("action") == "dislike":
+                dislikes += 1
+
+    adjustment = 0.05 * (likes - dislikes)
+    effective = min(0.5, max(0.0, base_ratio + adjustment))
+    return {
+        "base_ratio": round(base_ratio, 3),
+        "effective_ratio": round(effective, 3),
+        "explore_likes": likes,
+        "explore_dislikes": dislikes,
+    }
