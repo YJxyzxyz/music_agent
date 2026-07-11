@@ -2,6 +2,7 @@
 import logging
 
 from config import settings
+from preferences import UserPreferences
 from profile import TasteProfile
 
 logger = logging.getLogger(__name__)
@@ -51,12 +52,16 @@ def build_pool(api, profile: TasteProfile) -> list[dict]:
     return unique
 
 
-def score_song(song: dict, profile: TasteProfile) -> float:
-    if not profile.artist_set:
-        return 0.0
+def score_song(
+    song: dict,
+    profile: TasteProfile,
+    preferences: UserPreferences | None = None,
+) -> float:
     sc = 0.0
     for art in song["artists"]:
         sc += profile.normalized(art)
+    if preferences:
+        sc += preferences.adjustment(song)
     return sc
 
 
@@ -65,11 +70,27 @@ def select_songs(
     profile: TasteProfile,
     n: int | None = None,
     exclude_ids: set | None = None,
+    preferences: UserPreferences | None = None,
+    explore_ratio: float | None = None,
 ) -> list[dict]:
     n = n or settings.n_songs
     pool = build_pool(api, profile)
     if not pool:
         return []
+
+    preferences = preferences or UserPreferences()
+    explore_ratio = settings.explore_ratio if explore_ratio is None else explore_ratio
+    explore_ratio = min(1.0, max(0.0, explore_ratio))
+    available = []
+    blocked_count = 0
+    for song in pool:
+        if preferences.blocks(song) or preferences.dislikes(song):
+            blocked_count += 1
+        else:
+            available.append(song)
+    pool = available
+    if blocked_count:
+        logger.info("个人反馈过滤 %s 首不喜欢歌曲或已屏蔽艺人的歌曲", blocked_count)
 
     exclude_ids = exclude_ids or set()
     fresh = [s for s in pool if s["id"] not in exclude_ids]
@@ -77,38 +98,56 @@ def select_songs(
     if repeated:
         logger.info("历史去重排除 %s 首近期推荐；候选不足时会自动补回", len(repeated))
 
-    scored = [(score_song(s, profile), s) for s in fresh]
+    scored = [(score_song(s, profile, preferences), s) for s in fresh]
     if len(fresh) < n:
         logger.warning("去重后仅剩 %s 首候选，放宽历史限制补齐推荐", len(fresh))
-        scored.extend((score_song(s, profile), s) for s in repeated)
+        scored.extend((score_song(s, profile, preferences), s) for s in repeated)
     scored.sort(key=lambda x: x[0], reverse=True)
 
     chosen: list[dict] = []
     artist_count: dict[str, int] = {}
     max_per_artist = 2  # 多样性保护：同一艺人最多 2 首
+    exploration_ids = set()
 
-    # 第一轮：优先高分且不过度集中的
-    for sc, s in scored:
-        if len(chosen) >= n:
-            break
-        primary = s["artists"][0] if s["artists"] else ""
-        if artist_count.get(primary, 0) >= max_per_artist:
-            continue
-        chosen.append(s)
-        artist_count[primary] = artist_count.get(primary, 0) + 1
-
-    # 第二轮：若不足 n，放宽多样性限制补齐
-    if len(chosen) < n:
-        chosen_ids = {c["id"] for c in chosen}
-        for sc, s in scored:
-            if len(chosen) >= n:
-                break
-            if s["id"] in chosen_ids:
+    def take(candidates, limit: int, enforce_diversity: bool = True) -> None:
+        chosen_ids = {song["id"] for song in chosen}
+        for _, song in candidates:
+            if len(chosen) >= limit or song["id"] in chosen_ids:
                 continue
-            chosen.append(s)
+            primary = song["artists"][0] if song["artists"] else ""
+            if enforce_diversity and artist_count.get(primary, 0) >= max_per_artist:
+                continue
+            chosen.append(song)
+            chosen_ids.add(song["id"])
+            artist_count[primary] = artist_count.get(primary, 0) + 1
+
+    explore_count = min(n, int(n * explore_ratio + 0.5))
+    familiar_count = n - explore_count
+    take(scored, familiar_count)
+
+    # 探索位从低熟悉度候选中选择，仍保留网易云候选池原本的个性化顺序。
+    chosen_ids = {song["id"] for song in chosen}
+    explore_candidates = []
+    for song in fresh:
+        score = score_song(song, profile, preferences)
+        if song["id"] not in chosen_ids and score <= 0.25:
+            explore_candidates.append((score, song))
+    before_explore = set(chosen_ids)
+    take(explore_candidates, n)
+    exploration_ids.update(song["id"] for song in chosen if song["id"] not in before_explore)
+
+    # 探索候选不足时回到完整评分池，并最终放宽艺人多样性以补齐。
+    if len(chosen) < n:
+        take(scored, n)
+    if len(chosen) < n:
+        take(scored, n, enforce_diversity=False)
 
     # 附加推荐理由
     for s in chosen:
+        preference_reason = preferences.reason(s)
         tops = [a for a in s["artists"] if a in profile.artist_set]
-        s["reason"] = f"你常听 {tops[0]}" if tops else "今日新鲜推荐"
+        if s["id"] in exploration_ids:
+            s["reason"] = "探索一点新口味"
+        else:
+            s["reason"] = preference_reason or (f"你常听 {tops[0]}" if tops else "今日新鲜推荐")
     return chosen

@@ -4,6 +4,7 @@ import json
 import logging
 
 from config import HISTORY_FILE, JOURNAL_DIR, STATE_FILE
+from scenes import SCENES, normalize_scene
 
 logger = logging.getLogger(__name__)
 
@@ -45,23 +46,45 @@ def recent_song_ids(days: int, today: dt.date | None = None) -> set:
     return result
 
 
-def append_history(songs: list[dict], caption: str, pushed_at: dt.datetime | None = None) -> None:
+def append_history(
+    songs: list[dict],
+    caption: str,
+    pushed_at: dt.datetime | None = None,
+    scene: str = "default",
+) -> None:
     pushed_at = pushed_at or dt.datetime.now().astimezone()
     entry = {
         "date": pushed_at.date().isoformat(),
         "pushed_at": pushed_at.isoformat(timespec="seconds"),
         "songs": songs,
         "caption": caption,
+        "scene": scene,
     }
     with HISTORY_FILE.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-def write_journal(songs: list[dict], caption: str, day: dt.date | None = None):
+def write_journal(
+    songs: list[dict],
+    caption: str,
+    day: dt.date | None = None,
+    scene: str = "default",
+):
     day = day or dt.date.today()
+    scene = normalize_scene(scene)
+    scene_label = SCENES[scene][0]
     JOURNAL_DIR.mkdir(parents=True, exist_ok=True)
     path = JOURNAL_DIR / f"{day.isoformat()}.md"
-    lines = [f"# {day.isoformat()} 音乐日记", "", caption, "", "## 今日推荐", ""]
+    lines = [
+        f"# {day.isoformat()} 音乐日记",
+        "",
+        f"场景：{scene_label}",
+        "",
+        caption,
+        "",
+        "## 今日推荐",
+        "",
+    ]
     for index, song in enumerate(songs, 1):
         artists = "、".join(song.get("artists", [])) or "未知艺人"
         album = song.get("album") or "未知专辑"

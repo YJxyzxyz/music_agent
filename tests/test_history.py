@@ -40,6 +40,12 @@ class HistoryTests(unittest.TestCase):
         self.assertIn("《歌名》", content)
         self.assertIn("今日配文", content)
 
+    def test_write_journal_uses_localized_scene_name(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(history, "JOURNAL_DIR", Path(tmp)):
+            path = history.write_journal([], "夜间配文", day=dt.date(2026, 7, 11), scene="night")
+            content = path.read_text(encoding="utf-8")
+        self.assertIn("场景：夜晚", content)
+
 
 if __name__ == "__main__":
     unittest.main()

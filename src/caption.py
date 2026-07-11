@@ -1,6 +1,7 @@
 """配文：用 DeepSeek 根据挑选的 5 首歌生成适合发朋友圈的文案。"""
 from openai import OpenAI
 from config import settings
+from scenes import SCENES, normalize_scene
 
 
 def _format_songs(songs: list[dict]) -> str:
@@ -11,7 +12,7 @@ def _format_songs(songs: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def generate_caption(songs: list[dict]) -> str:
+def generate_caption(songs: list[dict], scene: str = "default") -> str:
     if not settings.deepseek_api_key:
         raise ValueError("缺少 DEEPSEEK_API_KEY，请在 .env 中配置。")
 
@@ -22,15 +23,18 @@ def generate_caption(songs: list[dict]) -> str:
         timeout=settings.api_timeout,
     )
     song_text = _format_songs(songs)
+    scene = normalize_scene(scene)
+    scene_label, scene_tone = SCENES[scene]
 
     system = (
         "你是一个懂音乐、文笔细腻的内容创作者，擅长写适合发微信朋友圈的短配文。"
         "风格温暖、有共鸣、带一点文艺感，适当使用 emoji，但不过度。"
         "不要写标题，直接给一段可复制粘贴的文案（3-6 句），"
         "可以巧妙融入今天推荐歌单的氛围，但不必逐首点评。"
+        f"当前场景是『{scene_label}』，语气应当{scene_tone}。"
     )
     user = (
-        f"今天根据你的听歌习惯，为你挑选了这 5 首歌：\n{song_text}\n\n"
+        f"今天根据你的听歌习惯，为你挑选了这些歌：\n{song_text}\n\n"
         "请据此写一段朋友圈配文，让人想点开听歌。只输出文案本身。"
     )
 

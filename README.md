@@ -66,6 +66,8 @@ cp .env.example .env
 | `N_SONGS` | 每次挑选歌曲数，默认 5 |
 | `N_PLAYLISTS` | 额外抓取的推荐歌单数，默认 3 |
 | `RECENT_DEDUP_DAYS` | 避免重复推荐的历史天数，默认 30，设为 0 关闭 |
+| `EXPLORE_RATIO` | 新口味探索占比，默认 0.2，即每 5 首约 1 首 |
+| `SCENE_MODE` | 默认配文场景：`default` / `morning` / `commute` / `focus` / `night` / `weekend` |
 | `API_RETRY_ATTEMPTS` | 网易云、DeepSeek、PushPlus 请求总尝试次数，默认 3 |
 | `API_RETRY_BACKOFF` | 接口重试的指数退避基数秒数，默认 1.5 |
 | `API_TIMEOUT` | 外部接口单次请求超时秒数，默认 20 |
@@ -80,8 +82,21 @@ python -m src.cli login
 # 2) 立即跑一次（推荐 + 配文 + 推送）
 python -m src.cli run
 
+# 临时使用夜晚场景，不修改 .env
+python -m src.cli run --scene night
+
 # 3) 每天定时自动运行（后台常驻）
 python -m src.cli serve
+
+# 4) 对上一次推送的第 1 首歌点赞 / 对第 2 首点不喜欢
+python -m src.cli feedback like 1
+python -m src.cli feedback dislike 2
+
+# 5) 设置艺人长期偏好，或恢复为中性
+python -m src.cli artist prefer 周杰伦
+python -m src.cli artist block 某艺人
+python -m src.cli artist neutral 某艺人
+python -m src.cli preferences
 ```
 
 Cookie 保存在 `data/cookies.json`，之后自动复用；若失效运行 `login` 重新粘贴即可。
@@ -89,6 +104,8 @@ Cookie 保存在 `data/cookies.json`，之后自动复用；若失效运行 `log
 每次成功推送后，会追加 `data/history.jsonl` 推荐历史、生成
 `data/journal/YYYY-MM-DD.md` 音乐日记；运行日志保存在 `data/logs/agent.log`。
 选歌默认避开最近 30 天已推荐歌曲，候选不足时自动放宽限制补齐。
+歌曲反馈和艺人偏好保存在 `data/preferences.json`，变更流水保存在
+`data/feedback.jsonl`。不喜欢的歌曲和已屏蔽艺人会被过滤，喜欢反馈与偏爱艺人会提高后续推荐权重。
 
 ## 说明与边界
 
