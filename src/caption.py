@@ -18,6 +18,8 @@ def generate_caption(songs: list[dict]) -> str:
     client = OpenAI(
         api_key=settings.deepseek_api_key,
         base_url=settings.deepseek_base_url,
+        max_retries=max(0, settings.api_retry_attempts - 1),
+        timeout=settings.api_timeout,
     )
     song_text = _format_songs(songs)
 

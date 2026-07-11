@@ -13,12 +13,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import check_required
 from netease_api import NeteaseAPI
-from login import setup_cookie, ensure_login
+from login import setup_cookie
 from orchestrator import run_once
 from scheduler import start
+from logging_setup import setup_logging
 
 
 def main():
+    setup_logging()
     parser = argparse.ArgumentParser(description="网易云音乐推荐 Agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -39,8 +41,6 @@ def main():
         if missing:
             print(f"缺少配置：{', '.join(missing)}，请在 .env 中填写后重试。")
             sys.exit(1)
-        api = NeteaseAPI()
-        ensure_login(api)
         run_once(force=getattr(args, "force", False))
         return
 
@@ -49,8 +49,6 @@ def main():
         if missing:
             print(f"缺少配置：{', '.join(missing)}，请在 .env 中填写后重试。")
             sys.exit(1)
-        api = NeteaseAPI()
-        ensure_login(api)
         start()
 
 

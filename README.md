@@ -65,6 +65,10 @@ cp .env.example .env
 | `RUN_TIME` | 每日推送时间，如 09:00 |
 | `N_SONGS` | 每次挑选歌曲数，默认 5 |
 | `N_PLAYLISTS` | 额外抓取的推荐歌单数，默认 3 |
+| `RECENT_DEDUP_DAYS` | 避免重复推荐的历史天数，默认 30，设为 0 关闭 |
+| `API_RETRY_ATTEMPTS` | 网易云、DeepSeek、PushPlus 请求总尝试次数，默认 3 |
+| `API_RETRY_BACKOFF` | 接口重试的指数退避基数秒数，默认 1.5 |
+| `API_TIMEOUT` | 外部接口单次请求超时秒数，默认 20 |
 
 ## 使用
 
@@ -81,6 +85,10 @@ python -m src.cli serve
 ```
 
 Cookie 保存在 `data/cookies.json`，之后自动复用；若失效运行 `login` 重新粘贴即可。
+
+每次成功推送后，会追加 `data/history.jsonl` 推荐历史、生成
+`data/journal/YYYY-MM-DD.md` 音乐日记；运行日志保存在 `data/logs/agent.log`。
+选歌默认避开最近 30 天已推荐歌曲，候选不足时自动放宽限制补齐。
 
 ## 说明与边界
 

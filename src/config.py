@@ -13,6 +13,9 @@ COOKIES_FILE = DATA_DIR / "cookies.json"
 QR_FILE = DATA_DIR / "qr_login.png"
 STATE_FILE = DATA_DIR / "state.json"
 LAST_PUSH_FILE = DATA_DIR / "last_push.html"
+HISTORY_FILE = DATA_DIR / "history.jsonl"
+JOURNAL_DIR = DATA_DIR / "journal"
+LOG_DIR = DATA_DIR / "logs"
 
 # 确保目录存在
 DATA_DIR.mkdir(exist_ok=True)
@@ -22,6 +25,20 @@ load_dotenv(BASE_DIR / ".env")
 
 def _env(name: str, default: str = "") -> str:
     return os.getenv(name, default).strip()
+
+
+def _env_int(name: str, default: int, minimum: int = 0) -> int:
+    try:
+        return max(minimum, int(_env(name, str(default))))
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float, minimum: float = 0.0) -> float:
+    try:
+        return max(minimum, float(_env(name, str(default))))
+    except ValueError:
+        return default
 
 
 class Settings:
@@ -35,8 +52,12 @@ class Settings:
 
     # 运行参数
     run_time: str = _env("RUN_TIME", "09:00")
-    n_songs: int = int(_env("N_SONGS", "5"))
-    n_playlists: int = int(_env("N_PLAYLISTS", "3"))
+    n_songs: int = _env_int("N_SONGS", 5, minimum=1)
+    n_playlists: int = _env_int("N_PLAYLISTS", 3)
+    recent_dedup_days: int = _env_int("RECENT_DEDUP_DAYS", 30)
+    api_retry_attempts: int = _env_int("API_RETRY_ATTEMPTS", 3, minimum=1)
+    api_retry_backoff: float = _env_float("API_RETRY_BACKOFF", 1.5)
+    api_timeout: float = _env_float("API_TIMEOUT", 20.0, minimum=1.0)
 
     @property
     def cookies(self) -> str:

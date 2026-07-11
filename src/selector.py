@@ -1,6 +1,10 @@
 """选歌：构建候选歌池，按听歌画像打分，挑选 N 首兼顾偏好的歌曲。"""
+import logging
+
 from config import settings
 from profile import TasteProfile
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_song(song: dict) -> dict:
@@ -22,7 +26,7 @@ def build_pool(api, profile: TasteProfile) -> list[dict]:
         for s in api.recommend_songs(limit=30):
             pool.append(_normalize_song(s))
     except Exception as e:
-        print(f"[选歌] 读取每日推荐歌曲失败：{e}")
+        logger.warning("读取每日推荐歌曲失败：%s", e)
 
     # 2) 推荐歌单里的歌曲，扩充候选
     try:
@@ -35,7 +39,7 @@ def build_pool(api, profile: TasteProfile) -> list[dict]:
             for tr in detail.get("tracks", [])[:50]:
                 pool.append(_normalize_song(tr))
     except Exception as e:
-        print(f"[选歌] 读取推荐歌单失败：{e}")
+        logger.warning("读取推荐歌单失败：%s", e)
 
     # 去重（按 id）
     seen, unique = set(), []
@@ -56,13 +60,27 @@ def score_song(song: dict, profile: TasteProfile) -> float:
     return sc
 
 
-def select_songs(api, profile: TasteProfile, n: int | None = None) -> list[dict]:
+def select_songs(
+    api,
+    profile: TasteProfile,
+    n: int | None = None,
+    exclude_ids: set | None = None,
+) -> list[dict]:
     n = n or settings.n_songs
     pool = build_pool(api, profile)
     if not pool:
         return []
 
-    scored = [(score_song(s, profile), s) for s in pool]
+    exclude_ids = exclude_ids or set()
+    fresh = [s for s in pool if s["id"] not in exclude_ids]
+    repeated = [s for s in pool if s["id"] in exclude_ids]
+    if repeated:
+        logger.info("历史去重排除 %s 首近期推荐；候选不足时会自动补回", len(repeated))
+
+    scored = [(score_song(s, profile), s) for s in fresh]
+    if len(fresh) < n:
+        logger.warning("去重后仅剩 %s 首候选，放宽历史限制补齐推荐", len(fresh))
+        scored.extend((score_song(s, profile), s) for s in repeated)
     scored.sort(key=lambda x: x[0], reverse=True)
 
     chosen: list[dict] = []

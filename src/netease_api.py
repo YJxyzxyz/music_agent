@@ -15,6 +15,7 @@
 import re
 import requests
 from config import settings
+from http_utils import request_json
 from netease_crypto import weapi
 
 BASE = "https://music.163.com/weapi"
@@ -50,9 +51,13 @@ class NeteaseAPI:
 
         url = f"{BASE}/{path.lstrip('/')}"
         data = weapi(payload)
-        resp = self.session.post(url, data=data, timeout=20)
-        resp.raise_for_status()
-        return resp.json()
+        return request_json(
+            self.session,
+            "POST",
+            url,
+            operation=f"网易云接口 {path}",
+            data=data,
+        )
 
     # ---------- 登录态 ----------
     def login_status(self) -> dict:

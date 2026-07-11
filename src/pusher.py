@@ -1,6 +1,7 @@
 """推送：通过 PushPlus 把『5 首歌 + 配文』推送到微信。"""
 import requests
 from config import settings, LAST_PUSH_FILE
+from http_utils import request_json
 
 
 def _build_html(songs: list[dict], caption: str) -> str:
@@ -30,8 +31,13 @@ def push(songs: list[dict], caption: str) -> dict:
         "content": html,
         "template": "html",
     }
-    resp = requests.post("https://www.pushplus.plus/send", json=payload, timeout=15)
-    data = resp.json()
+    data = request_json(
+        requests.Session(),
+        "POST",
+        "https://www.pushplus.plus/send",
+        operation="PushPlus 推送",
+        json=payload,
+    )
     if data.get("code") != 200:
         raise RuntimeError(f"PushPlus 推送失败：{data}")
     return data

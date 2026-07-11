@@ -2,7 +2,9 @@
 
 注：网易云已下线 user/record（听歌排行）接口，故用 likelist 作为画像数据源。
 """
-from config import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TasteProfile:
@@ -36,7 +38,7 @@ def _batch(iterable, n):
 def build_profile(api, uid: str, cap: int = 300) -> TasteProfile:
     ids = api.likelist(uid, cap=cap)
     if not ids:
-        print("[画像] 未取到『我喜欢的音乐』，将退化为随机挑选。")
+        logger.warning("未取到『我喜欢的音乐』，将退化为无画像挑选")
         return TasteProfile({})
 
     weights: dict[str, float] = {}
@@ -44,7 +46,7 @@ def build_profile(api, uid: str, cap: int = 300) -> TasteProfile:
         try:
             songs = api.song_detail(chunk)
         except Exception as e:
-            print(f"[画像] 批量获取歌曲详情失败：{e}")
+            logger.warning("批量获取歌曲详情失败：%s", e)
             continue
         for s in songs:
             for ar in s.get("ar", []):
@@ -53,7 +55,7 @@ def build_profile(api, uid: str, cap: int = 300) -> TasteProfile:
                     weights[name] = weights.get(name, 0) + 1
 
     if not weights:
-        print("[画像] 未解析到艺人信息，将退化为随机挑选。")
+        logger.warning("未解析到艺人信息，将退化为无画像挑选")
     else:
-        print(f"[画像] 基于 {len(ids)} 首喜欢歌曲构建，覆盖 {len(weights)} 位艺人。")
+        logger.info("基于 %s 首喜欢歌曲构建，覆盖 %s 位艺人", len(ids), len(weights))
     return TasteProfile(weights)
