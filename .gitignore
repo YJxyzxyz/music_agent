@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# Secrets & runtime state（绝不上传）
+.env
+data/*
+!data/.gitkeep
+
+# 本地工作记忆（含个人信息，不公开）
+.workbuddy/
+
+# Node server deps（历史遗留，已弃用）
+netease_api_server/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
