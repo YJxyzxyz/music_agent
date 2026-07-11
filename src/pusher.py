@@ -30,6 +30,26 @@ def write_draft_preview(songs: list[dict], caption: str):
     return DRAFT_PREVIEW_FILE
 
 
+def push_html(title: str, content: str) -> dict:
+    if not settings.pushplus_token:
+        raise ValueError("缺少 PUSHPLUS_TOKEN，请在 .env 中配置。")
+    data = request_json(
+        requests.Session(),
+        "POST",
+        "https://www.pushplus.plus/send",
+        operation="PushPlus 推送",
+        json={
+            "token": settings.pushplus_token,
+            "title": title,
+            "content": content,
+            "template": "html",
+        },
+    )
+    if data.get("code") != 200:
+        raise RuntimeError(f"PushPlus 推送失败：{data}")
+    return data
+
+
 def push(songs: list[dict], caption: str) -> dict:
     if not settings.pushplus_token:
         raise ValueError("缺少 PUSHPLUS_TOKEN，请在 .env 中配置。")
@@ -37,19 +57,4 @@ def push(songs: list[dict], caption: str) -> dict:
     html = _build_html(songs, caption)
     LAST_PUSH_FILE.write_text(html, encoding="utf-8")
 
-    payload = {
-        "token": settings.pushplus_token,
-        "title": "🎵 今日音乐推荐",
-        "content": html,
-        "template": "html",
-    }
-    data = request_json(
-        requests.Session(),
-        "POST",
-        "https://www.pushplus.plus/send",
-        operation="PushPlus 推送",
-        json=payload,
-    )
-    if data.get("code") != 200:
-        raise RuntimeError(f"PushPlus 推送失败：{data}")
-    return data
+    return push_html("🎵 今日音乐推荐", html)

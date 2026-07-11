@@ -20,6 +20,7 @@ from scheduler import start
 from logging_setup import setup_logging
 from preferences import load_preferences, record_song_feedback, set_artist_preference
 from scenes import SCENES
+from weekly_report import generate_weekly_report
 
 
 def main():
@@ -38,6 +39,9 @@ def main():
     p_push_draft = sub.add_parser("push-draft", help="确认并推送当前草稿")
     p_push_draft.add_argument("--force", action="store_true", help="允许重复推送同一草稿")
     sub.add_parser("show-draft", help="查看当前草稿")
+    p_weekly = sub.add_parser("weekly-report", help="生成最近 7 天音乐周报")
+    p_weekly.add_argument("--end-date", help="统计结束日期，格式 YYYY-MM-DD")
+    p_weekly.add_argument("--push", action="store_true", help="生成后通过 PushPlus 推送")
     sub.add_parser("serve", help="每天定时自动运行")
     p_feedback = sub.add_parser("feedback", help="评价上一次推送中的歌曲")
     p_feedback.add_argument("action", choices=["like", "dislike"])
@@ -105,6 +109,18 @@ def main():
         except ValueError as exc:
             parser.error(str(exc))
         print_draft(draft)
+        return
+
+    if args.cmd == "weekly-report":
+        require(deepseek=True, pushplus=args.push)
+        try:
+            report = generate_weekly_report(
+                end_date=args.end_date,
+                push_report=args.push,
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(f"[周报] 已生成：{report['path']}\n\n{report['mood_summary']}")
         return
 
     if args.cmd == "feedback":

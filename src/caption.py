@@ -1,7 +1,20 @@
 """配文：用 DeepSeek 根据挑选的 5 首歌生成适合发朋友圈的文案。"""
+import json
+
 from openai import OpenAI
 from config import settings
 from scenes import SCENES, normalize_scene
+
+
+def _client() -> OpenAI:
+    if not settings.deepseek_api_key:
+        raise ValueError("缺少 DEEPSEEK_API_KEY，请在 .env 中配置。")
+    return OpenAI(
+        api_key=settings.deepseek_api_key,
+        base_url=settings.deepseek_base_url,
+        max_retries=max(0, settings.api_retry_attempts - 1),
+        timeout=settings.api_timeout,
+    )
 
 
 def _format_songs(songs: list[dict]) -> str:
@@ -13,15 +26,7 @@ def _format_songs(songs: list[dict]) -> str:
 
 
 def generate_caption(songs: list[dict], scene: str = "default") -> str:
-    if not settings.deepseek_api_key:
-        raise ValueError("缺少 DEEPSEEK_API_KEY，请在 .env 中配置。")
-
-    client = OpenAI(
-        api_key=settings.deepseek_api_key,
-        base_url=settings.deepseek_base_url,
-        max_retries=max(0, settings.api_retry_attempts - 1),
-        timeout=settings.api_timeout,
-    )
+    client = _client()
     song_text = _format_songs(songs)
     scene = normalize_scene(scene)
     scene_label, scene_tone = SCENES[scene]
@@ -56,4 +61,32 @@ def generate_caption(songs: list[dict], scene: str = "default") -> str:
             f"配文生成为空（模型 {settings.deepseek_model} 可能是思考型模型且被截断）。"
             "请增大 max_tokens 或改用 deepseek-chat。"
         )
+    return content
+
+
+def generate_weekly_mood_summary(summary_input: dict) -> str:
+    """根据一周推荐与反馈生成克制的心情回顾。"""
+    response = _client().chat.completions.create(
+        model=settings.deepseek_model,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "你是一位克制、细腻的音乐编辑。请根据一周的音乐推荐和用户明确反馈，"
+                    "写一段 4-6 句的中文心情回顾。可以描述这一周呈现出的情绪色彩、节奏和变化，"
+                    "但必须说明这是从音乐偏好得到的轻量推断，不要诊断心理状态，不要编造现实事件，"
+                    "不要逐条复述统计数字，不写标题。"
+                ),
+            },
+            {
+                "role": "user",
+                "content": json.dumps(summary_input, ensure_ascii=False),
+            },
+        ],
+        temperature=0.7,
+        max_tokens=1200,
+    )
+    content = (response.choices[0].message.content or "").strip()
+    if not content:
+        raise ValueError("每周心情总结生成为空，请稍后重试。")
     return content

@@ -46,6 +46,38 @@ def recent_song_ids(days: int, today: dt.date | None = None) -> set:
     return result
 
 
+def history_entries(start: dt.date, end: dt.date) -> list[dict]:
+    """读取日期区间内的推送历史；仅在没有历史文件时回退到旧版 state。"""
+    entries = []
+    if HISTORY_FILE.exists():
+        for line in HISTORY_FILE.read_text(encoding="utf-8").splitlines():
+            try:
+                entry = json.loads(line)
+            except (TypeError, ValueError):
+                continue
+            entry_date = _parse_date(entry.get("date"))
+            if entry_date and start <= entry_date <= end:
+                entries.append(entry)
+        return entries
+
+    if STATE_FILE.exists():
+        try:
+            state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        entry_date = _parse_date(state.get("last_push_date"))
+        if entry_date and start <= entry_date <= end:
+            entries.append(
+                {
+                    "date": state.get("last_push_date"),
+                    "songs": state.get("songs", []),
+                    "caption": state.get("caption", ""),
+                    "scene": state.get("scene", "default"),
+                }
+            )
+    return entries
+
+
 def append_history(
     songs: list[dict],
     caption: str,

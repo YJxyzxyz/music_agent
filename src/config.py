@@ -19,6 +19,7 @@ HISTORY_FILE = DATA_DIR / "history.jsonl"
 PREFERENCES_FILE = DATA_DIR / "preferences.json"
 FEEDBACK_FILE = DATA_DIR / "feedback.jsonl"
 JOURNAL_DIR = DATA_DIR / "journal"
+REPORT_DIR = DATA_DIR / "reports"
 LOG_DIR = DATA_DIR / "logs"
 
 # 确保目录存在
@@ -49,6 +50,11 @@ def _env_ratio(name: str, default: float) -> float:
     return min(1.0, _env_float(name, default))
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    value = _env(name, "true" if default else "false").lower()
+    return value in {"1", "true", "yes", "on"}
+
+
 class Settings:
     # DeepSeek
     deepseek_api_key: str = _env("DEEPSEEK_API_KEY")
@@ -65,6 +71,10 @@ class Settings:
     recent_dedup_days: int = _env_int("RECENT_DEDUP_DAYS", 30)
     explore_ratio: float = _env_ratio("EXPLORE_RATIO", 0.2)
     scene_mode: str = _env("SCENE_MODE", "default")
+    weekly_report_enabled: bool = _env_bool("WEEKLY_REPORT_ENABLED", True)
+    weekly_report_day: str = _env("WEEKLY_REPORT_DAY", "sunday").lower()
+    weekly_report_time: str = _env("WEEKLY_REPORT_TIME", "20:00")
+    weekly_report_push: bool = _env_bool("WEEKLY_REPORT_PUSH", True)
     api_retry_attempts: int = _env_int("API_RETRY_ATTEMPTS", 3, minimum=1)
     api_retry_backoff: float = _env_float("API_RETRY_BACKOFF", 1.5)
     api_timeout: float = _env_float("API_TIMEOUT", 20.0, minimum=1.0)

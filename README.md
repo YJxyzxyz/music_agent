@@ -68,6 +68,10 @@ cp .env.example .env
 | `RECENT_DEDUP_DAYS` | 避免重复推荐的历史天数，默认 30，设为 0 关闭 |
 | `EXPLORE_RATIO` | 新口味探索占比，默认 0.2，即每 5 首约 1 首 |
 | `SCENE_MODE` | 默认配文场景：`default` / `morning` / `commute` / `focus` / `night` / `weekend` |
+| `WEEKLY_REPORT_ENABLED` | 是否启用自动音乐周报，默认 `true` |
+| `WEEKLY_REPORT_DAY` | 自动周报星期，默认 `sunday` |
+| `WEEKLY_REPORT_TIME` | 自动周报时间，默认 `20:00` |
+| `WEEKLY_REPORT_PUSH` | 自动生成后是否通过 PushPlus 推送，默认 `true` |
 | `API_RETRY_ATTEMPTS` | 网易云、DeepSeek、PushPlus 请求总尝试次数，默认 3 |
 | `API_RETRY_BACKOFF` | 接口重试的指数退避基数秒数，默认 1.5 |
 | `API_TIMEOUT` | 外部接口单次请求超时秒数，默认 20 |
@@ -90,6 +94,10 @@ python -m src.cli draft --scene night
 python -m src.cli show-draft
 python -m src.cli regenerate
 python -m src.cli push-draft
+
+# 生成截至今天的最近 7 天音乐周报；加 --push 可同时推送到微信
+python -m src.cli weekly-report
+python -m src.cli weekly-report --push
 
 # 3) 每天定时自动运行（后台常驻）
 python -m src.cli serve
@@ -116,6 +124,10 @@ Cookie 保存在 `data/cookies.json`，之后自动复用；若失效运行 `log
 `draft` 只生成 `data/draft.json` 和 `data/draft.html`，不会发送微信消息；
 `regenerate` 保留歌曲并重写配文，`push-draft` 才执行确认推送。每首歌会显示画像分、偏好分、
 推荐来源和总分。探索比例会根据最近最多 20 首探索歌曲的最终反馈，每次按 5% 小幅调整，范围限制在 0% 到 50%。
+
+`weekly-report` 汇总最近 7 天成功推送的歌曲、常出现艺人、喜欢/不喜欢反馈、探索接受率和场景，
+并由 DeepSeek 生成一段克制的一周心情回顾。报告保存在 `data/reports/`；由于网易云实际播放排行接口不可用，
+周报明确基于推荐记录与反馈，不将其表述为完整播放历史。
 
 ## 说明与边界
 

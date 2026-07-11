@@ -46,6 +46,27 @@ class HistoryTests(unittest.TestCase):
             content = path.read_text(encoding="utf-8")
         self.assertIn("场景：夜晚", content)
 
+    def test_history_entries_does_not_duplicate_state_when_jsonl_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            history_file = root / "history.jsonl"
+            state_file = root / "state.json"
+            history_file.write_text(
+                json.dumps({"date": "2026-07-11", "songs": [{"id": 1}]}) + "\n",
+                encoding="utf-8",
+            )
+            state_file.write_text(
+                json.dumps({"last_push_date": "2026-07-11", "songs": [{"id": 1}]}),
+                encoding="utf-8",
+            )
+            with patch.object(history, "HISTORY_FILE", history_file), patch.object(
+                history, "STATE_FILE", state_file
+            ):
+                entries = history.history_entries(
+                    dt.date(2026, 7, 5), dt.date(2026, 7, 11)
+                )
+        self.assertEqual(1, len(entries))
+
 
 if __name__ == "__main__":
     unittest.main()
